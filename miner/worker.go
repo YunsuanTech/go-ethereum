@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"github.com/ethereum/go-ethereum/consensus/clique"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -896,15 +897,8 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit(), w.config.GasCeil),
 		Extra:      w.extra,
+		BaseFee:    parent.BaseFee(),
 		Time:       uint64(timestamp),
-	}
-	// Set baseFee and GasLimit if we are on an EIP-1559 chain
-	if w.chainConfig.IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent.Header())
-		if !w.chainConfig.IsLondon(parent.Number()) {
-			parentGasLimit := parent.GasLimit() * params.ElasticityMultiplier
-			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
-		}
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {
@@ -915,6 +909,10 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		header.Coinbase = w.coinbase
 	}
 	if err := w.engine.Prepare(w.chain, header); err != nil {
+		if err == clique.ErrIneligibleSigner {
+			log.Info("Not eligible to sign block", "number", header.Number)
+			return
+		}
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
 	}

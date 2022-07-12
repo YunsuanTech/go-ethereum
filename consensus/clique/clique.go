@@ -276,9 +276,6 @@ func (c *Clique) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*typ
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
 func (c *Clique) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header, seal bool) error {
-	if header.Number == nil {
-		return errUnknownBlock
-	}
 	number := header.Number.Uint64()
 
 	// Don't waste time checking blocks from the future
@@ -468,10 +465,10 @@ func (c *Clique) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 // headers that aren't yet part of the local blockchain to generate the snapshots
 // from.
 func (c *Clique) verifySeal(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
-	// Verifying the genesis block is not supported
+	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
-		return errUnknownBlock
+		return nil
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
@@ -525,7 +522,6 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	header.Difficulty = new(big.Int).SetUint64(diff)
 
 	header.Extra = ExtraEnsureVanity(header.Extra)
-
 
 	if number%c.config.Epoch != 0 {
 		c.lock.RLock()
@@ -817,7 +813,7 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 		header.GasLimit,
 		header.GasUsed,
 		header.Time,
-		header.Extra[:len(header.Extra)-crypto.SignatureLength], // Yes, this will panic if extra is too short
+		header.Extra,
 		header.MixDigest,
 		header.Nonce,
 	}

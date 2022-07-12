@@ -280,7 +280,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Extra:      g.ExtraData,
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
-		BaseFee:    g.BaseFee,
+		BaseFee:   	big.NewInt(params.InitialBaseFee),
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
