@@ -53,18 +53,16 @@ const (
 
 // Clique proof-of-authority protocol constants.
 var (
-
 	signatureLength = 65
 
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
 
-	extraVanity = 32                     // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraVanity  = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraPropose = common.AddressLength + 1 // Number of extra-data suffix bytes reserved for a proposal vote.
-	extraSeal   = crypto.SignatureLength // Fixed number of extra-data suffix bytes reserved for signer seal
+	extraSeal    = crypto.SignatureLength   // Fixed number of extra-data suffix bytes reserved for signer seal
 
 	voterElection  byte = 0xff
 	signerElection byte = 0x00
-
 
 	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new signer
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a signer.
@@ -117,7 +115,6 @@ var (
 	// errInvalidCheckpointSigners is returned if a checkpoint block contains an
 	// invalid list of signers (i.e. non divisible by 20 bytes).
 	errInvalidCheckpointSigners = errors.New("invalid signer list on checkpoint block")
-
 
 	// errInvalidCheckpointVoters is returned if a checkpoint block contains an
 	// invalid list of voters
@@ -194,7 +191,6 @@ type propose struct {
 	Authorize     bool
 	VoterElection bool
 }
-
 
 // Clique is the proof-of-authority consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
@@ -547,14 +543,6 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 		}
 		c.lock.RUnlock()
 	}
-	// Set the correct difficulty
-	header.Difficulty = calcDifficulty(snap, c.signer)
-
-	// Ensure the extra data has all its components
-	if len(header.Extra) < extraVanity {
-		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
-	}
-	header.Extra = header.Extra[:extraVanity]
 
 	if number%c.config.Epoch == 0 {
 		header.Signers = snap.signers()
@@ -592,7 +580,7 @@ func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
-func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, stop <-chan struct{}) (*types.Block, *time.Time, error)  {
+func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, stop <-chan struct{}) (*types.Block, *time.Time, error) {
 	header := block.Header()
 
 	// Sealing the genesis block is not supported
@@ -635,7 +623,6 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, sto
 	header.Signer = sighash
 	wSeal := block.WithSeal(header)
 
-
 	// Maybe delay.
 	var (
 		n    = uint64(len(snap.Signers))
@@ -648,26 +635,6 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, sto
 
 	return wSeal, &until, nil
 
-
-}
-
-// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
-// that a new block should have:
-// * DIFF_NOTURN(2) if BLOCK_NUMBER % SIGNER_COUNT != SIGNER_INDEX
-// * DIFF_INTURN(1) if BLOCK_NUMBER % SIGNER_COUNT == SIGNER_INDEX
-func (c *Clique) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
-	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
-	if err != nil {
-		return nil
-	}
-	return calcDifficulty(snap, c.signer)
-}
-
-func calcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
-	if snap.inturn(snap.Number+1, signer) {
-		return new(big.Int).Set(diffInTurn)
-	}
-	return new(big.Int).Set(diffNoTurn)
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
@@ -708,8 +675,6 @@ func CalcDifficulty(lastSigned map[common.Address]uint64, signer common.Address)
 		// [1,n/2]: Too recent to sign again.
 		return 0
 	}
-
-	println("verify difficulty is ",uint64(difficulty))
 	// [n/2+1,n]
 	return uint64(difficulty)
 }
@@ -778,7 +743,6 @@ func ExtraIsVoterElection(extra []byte) bool {
 	}
 	return false
 }
-
 
 // SealHash returns the hash of a block prior to it being sealed.
 func SealHash(header *types.Header) (hash common.Hash) {
