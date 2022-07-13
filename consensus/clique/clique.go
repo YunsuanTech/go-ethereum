@@ -708,6 +708,8 @@ func CalcDifficulty(lastSigned map[common.Address]uint64, signer common.Address)
 		// [1,n/2]: Too recent to sign again.
 		return 0
 	}
+
+	println("verify difficulty is ",uint64(difficulty))
 	// [n/2+1,n]
 	return uint64(difficulty)
 }
