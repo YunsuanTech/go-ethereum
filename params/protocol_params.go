@@ -19,7 +19,7 @@ package params
 import "math/big"
 
 const (
-	DefaultCliquePeriod = 5
+	DefaultCliquePeriod = 3
 	DefaultCliqueEpoch  = 3000
 
 

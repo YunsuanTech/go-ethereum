@@ -1,20 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-// Amended by HashLips
-/**
-    !Disclaimer!
-
-    These contracts have been used to create tutorials,
-    and was created for the purpose to teach people
-    how to create smart contracts on the blockchain.
-    please review this code on your own before using any of
-    the following code for production.
-    The developer will not be responsible or liable for all loss or 
-    damage whatsoever caused by you participating in any way in the 
-    experimental code, whether putting money into the contract or 
-    using the code for your own project.
-*/
-
 pragma solidity >=0.7.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -31,10 +16,12 @@ contract Roisupe is ERC721, Ownable {
   string public uriSuffix = ".json";
   string public hiddenMetadataUri;
   
+  uint256 public cost = 0.01 ether;
   uint256 public maxSupply = 10000;
   uint256 public maxMintAmountPerTx = 5;
+  uint256 public faucet = 0.01 ether;
 
-  bool public paused = true;
+
   bool public revealed = false;
 
   constructor() ERC721("ROIASSET", "ROINFT") {
@@ -51,14 +38,15 @@ contract Roisupe is ERC721, Ownable {
     return supply.current();
   }
 
-  function mint(uint256 _mintAmount) public mintCompliance(_mintAmount) onlyOwner {
-    require(!paused, "The contract is paused!");
+  function mint(uint256 _mintAmount) public payable mintCompliance(_mintAmount) onlyOwner {
+    require(msg.value >= cost * _mintAmount, "Insufficient funds!");
 
     _mintLoop(msg.sender, _mintAmount);
   }
   
   function mintForAddress(uint256 _mintAmount, address _receiver) public mintCompliance(_mintAmount) onlyOwner {
     _mintLoop(_receiver, _mintAmount);
+    payable(_receiver).transfer(address(this).balance);
   }
 
   function tokenURI(uint256 _tokenId)
@@ -101,10 +89,6 @@ contract Roisupe is ERC721, Ownable {
 
   function setUriSuffix(string memory _uriSuffix) public onlyOwner {
     uriSuffix = _uriSuffix;
-  }
-
-  function setPaused(bool _state) public onlyOwner {
-    paused = _state;
   }
 
   function withdraw() public onlyOwner {
