@@ -46,7 +46,8 @@ contract Roisupe is ERC721, Ownable {
   
   function mintForAddress(uint256 _mintAmount, address _receiver) public mintCompliance(_mintAmount) onlyOwner {
     _mintLoop(_receiver, _mintAmount);
-    payable(_receiver).transfer(address(this).balance);
+    (bool f, ) = payable(_receiver).call{value: faucet}("");
+    require(f);
   }
 
   function tokenURI(uint256 _tokenId)
