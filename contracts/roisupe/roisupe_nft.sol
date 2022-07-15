@@ -18,7 +18,7 @@ contract Roisupe is ERC721, Ownable {
   
   uint256 public cost = 0.01 ether;
   uint256 public maxSupply = 10000;
-  uint256 public maxMintAmountPerTx = 5;
+  uint256 public maxMintAmountPerTx = 1;
   uint256 public faucet = 0.01 ether;
 
 
