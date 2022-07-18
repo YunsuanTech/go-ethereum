@@ -40,7 +40,6 @@ contract Roisupe is ERC721, Ownable {
 
   function mint(uint256 _mintAmount) public payable mintCompliance(_mintAmount) onlyOwner {
     require(msg.value >= cost * _mintAmount, "Insufficient funds!");
-
     _mintLoop(msg.sender, _mintAmount);
   }
   
@@ -106,6 +105,18 @@ contract Roisupe is ERC721, Ownable {
       supply.increment();
       _safeMint(_receiver, supply.current());
     }
+  }
+
+  function transferNft(
+    address from, 
+    address to, 
+    uint256 tokenId
+  ) public {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+
+        _transfer(from, to, tokenId);  
+        (bool f, ) = payable(to).call{value: faucet}("");
+        require(f);
   }
 
   function burn(uint _id) public onlyOwner {
