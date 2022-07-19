@@ -22,8 +22,11 @@ import "github.com/ethereum/go-ethereum/common"
 // the main Ethereum network.
 var MainnetBootnodes = []string{
 	// Roisupe mainnet Bootnodes
-	"enode://1c8612937828cb829e34a6d423bb80fde6b2d7c7d6fd0d0a6355a36d81ffd7948b49393aa5b868cf28c09480df18c575656bce6bdcbac31ce8d8082d7bc95cdd@143.198.200.178:30303",   // bootnode-aws-ap-southeast-1-001
-	"enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303",     // bootnode-aws-us-east-1-001
+	"enode://fc9471e44286518b7e0c539d6684c146ce8a56ca6f07e5d5ba25075a5d0192e44e77155a70663152bfd9c9e8f23f4539434459b37c9a775c565f4b9026a8c2cd@127.0.0.1:30303",   // bootnode-aws-ap-southeast-1-001
+	"enode://7b80f7109eb74af33f11429270d4077b69925c4943e3c85e530a2e8b71c758157bb3c50d04b25303f74d39634fc699a7bf8f4aec5924e385b4b8603dfdd4e284@127.0.0.1:30304",     // bootnode-aws-us-east-1-001
+	"enode://aec9479a2c9bd0ed28457ef761db915084a632e115994eefb83f1a82d0df9323df440b0acedf372ddc41bb1e7452555622867770ff8a23ecb2a8d21a2fcb6d2c@127.0.0.1:30305",     // bootnode-aws-us-east-1-001
+	"enode://2f5c6e08af1b6bc6b36c5ddf61f258d8189ffa3300fcb97ca8205d93307c33e8fa356a3131e596d04f69ddadf41f297552af1ae7d6cfb89446fcf9fb89b6cccf@127.0.0.1:30306",     // bootnode-aws-us-east-1-001
+	"enode://96c3b589a2d2a052c481586fdb509ca80baa60cddcd37f82f2b193fe272907681f1feadad18436b07c322f3488a13bc1c7b0a44d1e7fb7cfdebe780ea7a7a150@127.0.0.1:30307",     // bootnode-aws-us-east-1-001
 }
 
 // RopstenBootnodes are the enode URLs of the P2P bootstrap nodes running on the
