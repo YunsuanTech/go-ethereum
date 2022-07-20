@@ -39,7 +39,6 @@ contract Roisupe is ERC721, Ownable {
   }
 
   function mint(uint256 _mintAmount) public payable mintCompliance(_mintAmount) onlyOwner {
-    require(msg.value >= cost * _mintAmount, "Insufficient funds!");
     _mintLoop(msg.sender, _mintAmount);
   }
   
@@ -48,6 +47,18 @@ contract Roisupe is ERC721, Ownable {
     (bool f, ) = payable(_receiver).call{value: faucet}("");
     require(f);
   }
+
+  // Function to deposit Ether into this contract.
+  // Call this function along with some Ether.
+  // The balance of this contract will be automatically updated.
+  function deposit() public payable {}
+
+   // Function to receive Ether. msg.data must be empty
+  receive() external payable {}
+
+  // Fallback function is called when msg.data is not empty
+  fallback() external payable {}
+
 
   function tokenURI(uint256 _tokenId)
     public
