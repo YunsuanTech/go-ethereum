@@ -16,7 +16,6 @@ contract Roisupe is ERC721, Ownable {
   string public uriSuffix = ".json";
   string public hiddenMetadataUri;
   
-  uint256 public cost = 0.01 ether;
   uint256 public maxSupply = 10000;
   uint256 public maxMintAmountPerTx = 1900;
   uint256 public faucet = 0.01 ether;
@@ -27,6 +26,13 @@ contract Roisupe is ERC721, Ownable {
   constructor() ERC721("ROIASSET", "ROINFT") {
     setHiddenMetadataUri("ipfs://__CID__/hidden.json");
   }
+
+  // Function to receive Ether. msg.data must be empty
+  receive() external payable {}
+
+  // Fallback function is called when msg.data is not empty
+  fallback() external payable {}
+
 
   modifier mintCompliance(uint256 _mintAmount) {
     require(_mintAmount > 0 && _mintAmount <= maxMintAmountPerTx, "Invalid mint amount!");
@@ -53,11 +59,6 @@ contract Roisupe is ERC721, Ownable {
   // The balance of this contract will be automatically updated.
   function deposit() public payable {}
 
-   // Function to receive Ether. msg.data must be empty
-  receive() external payable {}
-
-  // Fallback function is called when msg.data is not empty
-  fallback() external payable {}
 
 
   function tokenURI(uint256 _tokenId)
@@ -123,11 +124,11 @@ contract Roisupe is ERC721, Ownable {
     address to, 
     uint256 tokenId
   ) public {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+    require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
 
-        _transfer(from, to, tokenId);  
-        (bool f, ) = payable(to).call{value: faucet}("");
-        require(f);
+    _transfer(from, to, tokenId);  
+    (bool f, ) = payable(to).call{value: faucet}("");
+    require(f);
   }
 
   function burn(uint _id) public onlyOwner {
