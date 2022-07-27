@@ -54,13 +54,6 @@ contract Roisupe is ERC721, Ownable {
     require(f);
   }
 
-  // Function to deposit Ether into this contract.
-  // Call this function along with some Ether.
-  // The balance of this contract will be automatically updated.
-  function deposit() public payable {}
-
-
-
   function tokenURI(uint256 _tokenId)
     public
     view
