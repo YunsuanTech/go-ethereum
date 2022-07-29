@@ -723,6 +723,7 @@ func (f *BlockFetcher) enqueue(peer string, header *types.Header, block *types.B
 		f.forgetHash(hash)
 		return
 	}
+	//modify by roger for fix sync error on 2022-07-28
 	//// Discard any past or too distant blocks
 	//if dist := int64(number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
 	//	log.Debug("Discarded delivered header or block, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
