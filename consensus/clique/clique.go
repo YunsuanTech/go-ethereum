@@ -205,6 +205,9 @@ type Clique struct {
 
 	signer common.Address // Ethereum address of the signing key
 	signFn SignerFn       // Signer function to authorize hashes with
+	//add by roger on 2022-08-01
+	signFns map[common.Address]SignerFn       // Signer function to authorize hashes with
+
 	lock   sync.RWMutex   // Protects the signer fields
 }
 
@@ -510,6 +513,15 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 			return fmt.Errorf("not authorized to sign: %s", c.signer.Hex())
 		}
 	}
+
+	// add by roger for muti-signers
+	signer := CheckSinger(snap.Signers, params.MainnetSigners)
+	if signer == (common.Address{}) {
+		return ErrIneligibleSigner
+	}
+	c.signer = signer
+	header.Coinbase = signer
+
 	// Calculate and validate the difficulty.
 	diff := CalcDifficulty(snap.Signers, c.signer)
 	if c.signer != (common.Address{}) && diff == 0 {
@@ -578,6 +590,16 @@ func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
 	c.signFn = signFn
 }
 
+// Authorize injects a private key into the consensus engine to mint new blocks
+// with.
+func (c *Clique) Authorizes(signer common.Address, signFn SignerFn) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.signFns[signer] = signFn
+}
+
+
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
 func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, stop <-chan struct{}) (*types.Block, *time.Time, error) {
@@ -645,6 +667,15 @@ func (c *Clique) SealHash(header *types.Header) common.Hash {
 // Close implements consensus.Engine. It's a noop for clique as there are no background threads.
 func (c *Clique) Close() error {
 	return nil
+}
+
+func CheckSinger(lastSigned map[common.Address]uint64, signers []common.Address) common.Address {
+	for _, item := range signers {
+		if CalcDifficulty(lastSigned, item) > 0 {
+			return item
+		}
+	}
+	return common.Address{}
 }
 
 // CalcDifficulty returns the difficulty for signer, given all signers and their most recently signed block numbers,
