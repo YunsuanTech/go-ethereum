@@ -229,6 +229,7 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 		recents:    recents,
 		signatures: signatures,
 		proposals:  make(map[common.Address]propose),
+		signFns:  make(map[common.Address]SignerFn),
 	}
 }
 
@@ -614,9 +615,10 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, sto
 	if c.config.Period == 0 && len(block.Transactions()) == 0 {
 		return nil, nil, errors.New("sealing paused while waiting for transactions")
 	}
+	fn:=c.signFns[c.signer]
 	// Don't hold the signer fields for the entire sealing procedure
 	c.lock.RLock()
-	signer, signFn := c.signer, c.signFn
+	signer, signFn := c.signer, fn
 	c.lock.RUnlock()
 
 	// Bail out if we're unauthorized to sign a block
