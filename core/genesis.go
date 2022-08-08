@@ -363,7 +363,7 @@ func DefaultGenesisBlock() *Genesis {
 	var extra = []byte("Roisupe")
 	return &Genesis{
 		Config:     params.MainnetChainConfig,
-		Timestamp:  1657783767,
+		Timestamp:  1659933348,
 		ExtraData:  append(extra, make([]byte, 32-len(extra))...),
 		GasLimit:   params.GenesisGasLimit,
 		Difficulty: big.NewInt(1),
