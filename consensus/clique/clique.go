@@ -19,6 +19,7 @@ package clique
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -206,9 +207,9 @@ type Clique struct {
 	signer common.Address // Ethereum address of the signing key
 	signFn SignerFn       // Signer function to authorize hashes with
 	//add by roger on 2022-08-01
-	signFns map[common.Address]SignerFn       // Signer function to authorize hashes with
+	signFns map[common.Address]SignerFn // Signer function to authorize hashes with
 
-	lock   sync.RWMutex   // Protects the signer fields
+	lock sync.RWMutex // Protects the signer fields
 }
 
 // New creates a Clique proof-of-authority consensus engine with the initial
@@ -229,7 +230,7 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 		recents:    recents,
 		signatures: signatures,
 		proposals:  make(map[common.Address]propose),
-		signFns:  make(map[common.Address]SignerFn),
+		signFns:    make(map[common.Address]SignerFn),
 	}
 }
 
@@ -478,18 +479,12 @@ func (c *Clique) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 	if err != nil {
 		return err
 	}
-	lastBlockSigned, authorized := snap.Signers[signer]
-	if !authorized {
-		return fmt.Errorf("%s not authorized to sign", signer.Hex())
+
+	if signer != CheckSinger(snap.Signers, header.ParentHash) {
+		return errInvalidCheckpointSigners
 	}
 
-	if lastBlockSigned > 0 {
-		if next := snap.nextSignableBlockNumber(lastBlockSigned); number < next {
-			return fmt.Errorf("%s not authorized to sign %d: signed recently %d, next eligible signature %d", signer.Hex(), number, lastBlockSigned, next)
-		}
-	}
-
-	if header.Difficulty.Uint64() != CalcDifficulty(snap.Signers, signer) {
+	if header.Difficulty.Uint64() != CalcDifficulty(snap.Signers, header.ParentHash) {
 		return errInvalidDifficulty
 	}
 
@@ -508,23 +503,17 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	if err != nil {
 		return err
 	}
-	if c.signer != (common.Address{}) {
-		// Check that we can sign.
-		if _, ok := snap.Signers[c.signer]; !ok {
-			return fmt.Errorf("not authorized to sign: %s", c.signer.Hex())
-		}
-	}
 
 	// add by roger for muti-signers
-	signer := CheckSinger(snap.Signers, params.MainnetSigners)
+	signer := CheckSinger(snap.Signers, header.ParentHash)
 	if signer == (common.Address{}) {
 		return ErrIneligibleSigner
 	}
 	c.signer = signer
 	header.Coinbase = signer
-
 	// Calculate and validate the difficulty.
-	diff := CalcDifficulty(snap.Signers, c.signer)
+	diff := CalcDifficulty(snap.Signers, header.ParentHash)
+
 	if c.signer != (common.Address{}) && diff == 0 {
 		return ErrIneligibleSigner
 	}
@@ -600,7 +589,6 @@ func (c *Clique) Authorizes(signer common.Address, signFn SignerFn) {
 	c.signFns[signer] = signFn
 }
 
-
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
 func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, stop <-chan struct{}) (*types.Block, *time.Time, error) {
@@ -615,7 +603,7 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, sto
 	if c.config.Period == 0 && len(block.Transactions()) == 0 {
 		return nil, nil, errors.New("sealing paused while waiting for transactions")
 	}
-	fn:=c.signFns[c.signer]
+	fn := c.signFns[c.signer]
 	// Don't hold the signer fields for the entire sealing procedure
 	c.lock.RLock()
 	signer, signFn := c.signer, fn
@@ -625,18 +613,6 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, sto
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
 		return nil, nil, err
-	}
-	lastBlockSigned, authorized := snap.Signers[signer]
-	if !authorized {
-		return nil, nil, fmt.Errorf("%s not authorized to sign", signer.Hex())
-	}
-
-	if lastBlockSigned > 0 {
-		if next := snap.nextSignableBlockNumber(lastBlockSigned); number < next {
-			log.Info("Signed recently, must wait for others", "number", number, "signed", lastBlockSigned, "next", next)
-			<-stop
-			return nil, nil, nil
-		}
 	}
 
 	// Sign all the things!
@@ -650,9 +626,9 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, sto
 	// Maybe delay.
 	var (
 		n    = uint64(len(snap.Signers))
-		diff = header.Difficulty.Uint64()
+		diff = chain.Config().Clique.Period
 	)
-	// Wait until header.Time plus a delay based on difficulty.
+	// Wait until header.Time plus a delay based on Period.
 	// Since diff is in the range [n/2+1,n], delay is [wiggleTime,n/2*wiggleTime].
 	delay := time.Duration(n-diff) * wiggleTime
 	until := time.Unix(int64(header.Time), 0).Add(delay)
@@ -671,13 +647,22 @@ func (c *Clique) Close() error {
 	return nil
 }
 
-func CheckSinger(lastSigned map[common.Address]uint64, signers []common.Address) common.Address {
-	for _, item := range signers {
-		if CalcDifficulty(lastSigned, item) > 0 {
-			return item
+func CheckSinger(lastSigned map[common.Address]uint64, parent common.Hash) common.Address {
+	var diff uint64 = 0
+	signer := common.Address{}
+	for add, _ := range lastSigned {
+		hash := make([]byte, 8)
+		hash = append(hash, []byte(add.Bytes())...)
+		hash = append(hash, parent.Bytes()...)
+
+		weight := uint64(binary.LittleEndian.Uint32(crypto.Keccak256(hash)))
+		lastSigned[add] = weight
+		if diff < weight {
+			diff = weight
+			signer = add
 		}
 	}
-	return common.Address{}
+	return signer
 }
 
 // CalcDifficulty returns the difficulty for signer, given all signers and their most recently signed block numbers,
@@ -686,30 +671,22 @@ func CheckSinger(lastSigned map[common.Address]uint64, signers []common.Address)
 // Difficulty for ineligible signers (too recent) is always 0. For eligible signers, difficulty is defined as 1 plus the
 // number of lower priority signers, with more recent signers have lower priority. If multiple signers have not yet
 // signed (0), then addresses which lexicographically sort later have lower priority.
-func CalcDifficulty(lastSigned map[common.Address]uint64, signer common.Address) uint64 {
-	last := lastSigned[signer]
-	difficulty := 1
-	// Note that signer's entry is implicitly skipped by the condition in both loops, so it never counts itself.
-	if last > 0 {
-		for _, n := range lastSigned {
-			if n > last {
-				difficulty++
-			}
+func CalcDifficulty(lastSigned map[common.Address]uint64, parent common.Hash) uint64 {
+
+	var diff uint64 = 0
+	for _, add := range params.MainnetSigners {
+		hash := make([]byte, 8)
+		hash = append(hash, []byte(add.Bytes())...)
+		hash = append(hash, parent.Bytes()...)
+
+		weight := uint64(binary.LittleEndian.Uint32(crypto.Keccak256(hash)))
+		lastSigned[add] = weight
+		if diff < weight {
+			diff = weight
 		}
-	} else {
-		// Haven't signed yet. If there are others, fall back to address sort.
-		for addr, n := range lastSigned {
-			if n > 0 || bytes.Compare(addr[:], signer[:]) > 0 {
-				difficulty++
-			}
-		}
-	}
-	if difficulty <= len(lastSigned)/2 {
-		// [1,n/2]: Too recent to sign again.
-		return 0
 	}
 	// [n/2+1,n]
-	return uint64(difficulty)
+	return uint64(diff)
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
