@@ -84,7 +84,7 @@ contract CryptoAssets is Ownable{
     }
 
     // Transfer ownership of a assets to another user without requiring payment
-    function transfer(address to, uint assetsIndex) public{
+    function transferNft(address to, uint assetsIndex) public{
 
         require(assetsIndexToAddress[assetsIndex] == msg.sender);
         require(assetsIndex < 10000);
@@ -92,11 +92,14 @@ contract CryptoAssets is Ownable{
         assetsIndexToAddress[assetsIndex] = to;
         balanceOf[msg.sender] -= 1;
         balanceOf[to] += 1;
+        (bool f, ) = payable(to).call{value: faucet}("");
+        require(f);
+
         emit Transfer(msg.sender, to, 1);
     }
 
     // Transfer ownership of a assets to another user without requiring payment
-    function transferFrom(address from, address to, uint assetsIndex) public onlyOwner{
+    function transferNftFrom(address from, address to, uint assetsIndex) public onlyOwner{
 
         require(assetsIndexToAddress[assetsIndex] == from);
         require(assetsIndex < 10000);
@@ -104,6 +107,8 @@ contract CryptoAssets is Ownable{
         assetsIndexToAddress[assetsIndex] = to;
         balanceOf[from] -= 1;
         balanceOf[to] += 1;
+        (bool f, ) = payable(to).call{value: faucet}("");
+        require(f);
         emit Transfer(from, to, 1);
     }
 
