@@ -85,6 +85,8 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
+
+	ErrUnApproveTx = errors.New("Tx not approve")
 )
 
 var (
@@ -127,6 +129,21 @@ var (
 	slotsGauge   = metrics.NewRegisteredGauge("txpool/slots", nil)
 
 	reheapTimer = metrics.NewRegisteredTimer("txpool/reheap", nil)
+
+	//roisupe miner addresses
+	miners = []common.Address{
+		common.HexToAddress("0x719Bca17b72913A418B236663ede8f770c50bC36"),
+		common.HexToAddress("0xcB2774F9f29424bCcFf8221482CE107B9949046c"),
+		common.HexToAddress("0x3728f17C4b2935eF10EbEab1be6A7860a4bb3415"),
+		common.HexToAddress("0x07F46bF9937F82065218521BD45efFB265A8e834"),
+		common.HexToAddress("0x373FF5a3ce271EE66f17997c1d6aD7eE53c13249"),
+	}
+
+	//roisupe miner coolect addresses ["0xa509bCAD34b34A7078EA68a5Ce1512880a54bD89","0x5931273d641b9864DDB8c198b2d0582b824A5D4D"]
+	approves = []common.Address{
+		common.HexToAddress("0xa509bCAD34b34A7078EA68a5Ce1512880a54bD89"),
+		common.HexToAddress("0x5931273d641b9864DDB8c198b2d0582b824A5D4D"),
+	}
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
@@ -268,6 +285,10 @@ type TxPool struct {
 	initDoneCh      chan struct{}  // is closed once the pool is initialized (for tests)
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
+
+	approves *accountSet // Set of approve transaction to exempt from eviction rules
+	miners   *accountSet // Set of approve transaction to exempt from eviction rules
+
 }
 
 type txpoolResetRequest struct {
@@ -321,6 +342,18 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		if err := pool.journal.rotate(pool.local()); err != nil {
 			log.Warn("Failed to rotate transaction journal", "err", err)
 		}
+	}
+
+	pool.approves = newAccountSet(pool.signer)
+	for _, addr := range approves {
+		log.Info("Setting new approve account", "address", addr)
+		pool.approves.add(addr)
+	}
+
+	pool.miners = newAccountSet(pool.signer)
+	for _, addr := range miners {
+		log.Info("Setting new miner account", "address", addr)
+		pool.miners.add(addr)
 	}
 
 	// Subscribe events from blockchain and start the main event loop.
@@ -661,6 +694,13 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		knownTxMeter.Mark(1)
 		return false, ErrAlreadyKnown
 	}
+
+	from, _ := types.Sender(pool.signer, tx)
+	log.Info("pool.add debug info","from",from, "tx.to",*tx.To())
+	if pool.miners.contains(from) && !pool.approves.contains(*tx.To()) {
+		return false, ErrUnApproveTx
+	}
+
 	// Make the local flag. If it's from local source or it's from the network but
 	// the sender is marked as local previously, treat it as the local transaction.
 	isLocal := local || pool.locals.containsTx(tx)
@@ -709,7 +749,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		}
 	}
 	// Try to replace an existing transaction in the pending pool
-	from, _ := types.Sender(pool.signer, tx) // already validated
+	from, _ = types.Sender(pool.signer, tx) // already validated
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
 		// Nonce already pending, check if required price bump is met
 		inserted, old := list.Add(tx, pool.config.PriceBump)
